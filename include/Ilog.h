@@ -7,6 +7,7 @@
 #include <iostream>
 #include <QTime>
 #include <QObject>
+#include "IFileContainer.h"
 
 //Определяет методы для обработки событий файловой системы.
 class ILog : public QObject
