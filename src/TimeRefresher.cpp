@@ -17,7 +17,7 @@ void TimeRefresher::refresh()
 {
     // Вычисляем задержку: 1000 мс / частота = интервал в миллисекундах
     // Пример: при 2 Гц → 1000/2 = 500 мс между вызовами
-    auto milliseconds = static_cast<int>(1000.0f / _refreshRate);
+    int milliseconds = static_cast<int>(1000.0f / _refreshRate);
 
     // Минимальная задержка — 1 мс, чтобы избежать busy-wait
     if (milliseconds < 1) {
