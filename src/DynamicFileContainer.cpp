@@ -1,83 +1,90 @@
-﻿#include <fstream>
-#include "IFileContainer.h"
+﻿#include "DynamicFileContainer.h"
+#include <QFile>
+#include <QTextStream>
+#include <stdexcept>
 
-// Очищает информацию о хранимых файлах и заново считывает её из файла контейнера
-void DynamicFileContainer::refresh()
-{
-    // Открываем файл для чтения
-    std::ifstream mFile(fileContainerPath);
+DynamicFileContainer::DynamicFileContainer(const QString& path)
+    : m_fileContainerPath(path) { refresh(); }
 
-    // Переменная для хранения пути к файлу
-    std::string path;
+void DynamicFileContainer::setPath(const QString& path) {
+    QMutexLocker locker(&m_mutex);
+    m_fileContainerPath = path;
+    refreshInternal();
+}
 
-    // Проверка: успешно ли открылся файл
-    if (mFile.is_open())
-    {
-        // Очищаем текущий список файлов
-        this->clear();
+void DynamicFileContainer::refresh() {
+    QMutexLocker locker(&m_mutex);
+    refreshInternal();
+}
 
-        // Читаем построчно до конца файла или ошибки
-        while (getline(mFile, path))
-        {
-            // Создаём объект QFileInfo из прочитанного пути
-            QFileInfo newFile(QString::fromStdString(path));
+void DynamicFileContainer::refreshInternal() {
+    m_baseFiles.clear();
+    QFile file(m_fileContainerPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
 
-            // Добавляем файл в контейнер
-            this->append(newFile);
+    QTextStream in(&file);
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        if (!line.isEmpty()) {
+            QFileInfo fi(line);
+            if (fi.exists() && fi.isFile()) m_baseFiles.append(fi);
         }
     }
 }
 
-// Конструктор: инициализация пути и загрузка файлов
-DynamicFileContainer::DynamicFileContainer(std::string path)
-{
-    // Сохраняем путь к файлу-контейнеру
-    this->fileContainerPath = path;
+bool DynamicFileContainer::addManualFile(const QString& path) {
+    if (path.isEmpty()) return false;
+    QFileInfo fi(path);
+    if (!fi.exists() || !fi.isFile()) return false;
 
-    // Сразу загружаем данные из файла
-    this->refresh();
+    QMutexLocker locker(&m_mutex);
+    m_manualFiles.append(fi);
+    return true;
 }
 
-// Сеттер пути: изменение источника данных
-void DynamicFileContainer::setPath(std::string path)
-{
-    // Обновляем путь к файлу-контейнеру
-    this->fileContainerPath = path;
-
-    // Перезагружаем данные по новому пути
-    this->refresh();
+bool DynamicFileContainer::removeManualFile(const QString& path) {
+    QMutexLocker locker(&m_mutex);
+    QString target = QFileInfo(path).absoluteFilePath();
+    auto it = std::remove_if(m_manualFiles.begin(), m_manualFiles.end(),
+                             [&target](const QFileInfo& f){ return f.absoluteFilePath() == target; });
+    if (it != m_manualFiles.end()) {
+        m_manualFiles.erase(it, m_manualFiles.end());
+        return true;
+    }
+    return false;
 }
 
-// Оператор доступа по индексу с авто-обновлением данных
-QFileInfo DynamicFileContainer::operator[](int index)
-{
-    // Обновляем список файлов из файла-контейнера
-    this->refresh();
-
-    // Возвращаем файл по запрошенному индексу
-    return this->container[index];
+QVector<QFileInfo> DynamicFileContainer::getSnapshot() const {
+    QMutexLocker locker(&m_mutex);
+    QVector<QFileInfo> res = m_baseFiles;
+    res.append(m_manualFiles);
+    return res;
 }
 
-// Добавление файла во внутренний контейнер
-void DynamicFileContainer::append(QFileInfo file)
-{
-    // Добавляем готовый объект QFileInfo в вектор
-    container.push_back(file);
+QFileInfo DynamicFileContainer::operator[](int index) {
+    QMutexLocker locker(&m_mutex);
+    int baseSize = m_baseFiles.size();
+    int totalSize = baseSize + m_manualFiles.size();
+    if (index < 0 || index >= totalSize)
+        throw std::out_of_range("DynamicFileContainer: index out of bounds");
+
+    QFileInfo f = (index < baseSize) ? m_baseFiles[index] : m_manualFiles[index - baseSize];
+    f.refresh();
+    return f;
 }
 
-// Очистка внутреннего контейнера
-void DynamicFileContainer::clear()
-{
-    // Очищаем вектор хранимых файлов
-    this->container.clear();
+void DynamicFileContainer::append(QFileInfo file) {
+    QMutexLocker locker(&m_mutex);
+    m_manualFiles.append(file);
 }
 
-// Получение актуального количества файлов
-int DynamicFileContainer::length()
-{
-    // Обновляем данные перед возвратом размера
-    this->refresh();
+void DynamicFileContainer::clear() {
+    QMutexLocker locker(&m_mutex);
+    m_baseFiles.clear();
+    m_manualFiles.clear();
+}
 
-    // Возвращаем текущее количество элементов
-    return this->container.size();
+int DynamicFileContainer::length() {
+    QMutexLocker locker(&m_mutex);
+    return m_baseFiles.size() + m_manualFiles.size();
 }
