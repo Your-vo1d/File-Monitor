@@ -1,81 +1,51 @@
-﻿#include "ILog.h"
-
-#include <QFileInfo>
+﻿#include "ConsoleLog.h"
+#include <iostream>
 #include <algorithm>
-#include <cstdlib>
+#include <cstdio>
 
-ConsoleLog::ConsoleLog(bool logTime)
-{
-    // Устанавливает, нужно ли выводить временные метки в логах
-    m_logTime = logTime;
+ConsoleLog::ConsoleLog(bool logTime) : m_out(stdout), m_logTime(logTime) {}
+
+void ConsoleLog::clearConsole() { /* Отключено для сохранения истории */ }
+
+void ConsoleLog::log(const std::string &data) {
+    if (m_logTime) m_out << QTime::currentTime().toString("HH:mm:ss") << ' ';
+    m_out << "[LOG] " << QString::fromStdString(data) << '\n';
+    m_out.flush();
 }
 
-//Очищение консоли
-void ConsoleLog::clearConsole()
-{
-    system("cls");
-}
-
-//Вывод сообщения в консоль
-void ConsoleLog::log(const std::string &data)
-{
-    if (m_logTime) {
-        std::cout << m_time.currentTime().toString().toStdString() << ' ';
-    }
-
-    std::cout << "[LOG] " << data << '\n';
-}
-
-std::string ConsoleLog::qint64ToString(qint64 value)
-{
-    std::string result;
-    result.reserve(20); // максимум 20 цифр для qint64
-
-    qint64 number = value;
-    do {
-        result += "0123456789"[number % 10];
-        number /= 10;
-    } while (number);
-
+std::string ConsoleLog::qint64ToString(qint64 value) {
+    if (value == 0) return "0";
+    std::string result; bool neg = value < 0; qint64 n = neg ? -value : value;
+    do { result += "0123456789"[n % 10]; n /= 10; } while (n);
+    if (neg) result += '-';
     std::reverse(result.begin(), result.end());
     return result;
 }
 
-void ConsoleLog::onFileExistence(IFileContainer *container, int index)
-{
-    // Случай: файл существует и не был изменён
-    QFileInfo file = (*container)[index];
-
-    log(std::to_string(index) + ": "
-        + file.absoluteFilePath().toStdString()
-        + " | "
-        + qint64ToString(file.size()));
+void ConsoleLog::onFileExistence(IFileContainer *container, int index) {
+    if (!container) return;
+    try {
+        QFileInfo f = container->operator[](index);
+        log(std::to_string(index) + ": " + f.absoluteFilePath().toStdString() +
+            " | Size: " + qint64ToString(f.size()));
+    } catch (...) { log("⚠️ Error accessing index " + std::to_string(index)); }
 }
 
-void ConsoleLog::onFileUpdate(IFileContainer *container, int index)
-{
-    // Случай: файл существует и был обновлён
-    QFileInfo file = (*container)[index];
-
-    log(std::to_string(index) + ": [UPDATED "
-        + file.lastModified().time().toString().toStdString()
-        + "] "
-        + file.absoluteFilePath().toStdString()
-        + " | "
-        + qint64ToString(file.size()));
+void ConsoleLog::onFileUpdate(IFileContainer *container, int index) {
+    if (!container) return;
+    try {
+        QFileInfo f = container->operator[](index);
+        log(std::to_string(index) + ": [UPDATED " + f.lastModified().toString("HH:mm:ss").toStdString() + "] " +
+            f.absoluteFilePath().toStdString() + " | Size: " + qint64ToString(f.size()));
+    } catch (...) { log("⚠️ Error accessing index " + std::to_string(index)); }
 }
 
-void ConsoleLog::onFileRemoval(IFileContainer *container, int index)
-{
-    // Случай: файл был удалён или не существует
-    QFileInfo file = (*container)[index];
-
-    log(std::to_string(index) + ": [NOT EXISTS] "
-        + file.absoluteFilePath().toStdString());
+void ConsoleLog::onFileRemoval(IFileContainer *container, int index) {
+    if (!container) return;
+    try {
+        QFileInfo f = container->operator[](index);
+        log(std::to_string(index) + ": [NOT EXISTS] " + f.absoluteFilePath().toStdString());
+    } catch (...) { log("⚠️ Error accessing index " + std::to_string(index)); }
 }
 
-void ConsoleLog::onCycleEnd()
-{
-    // Завершение цикла: очистка консоли
-    clearConsole();
-}
+void ConsoleLog::onCycleEnd() { /* Пусто */ }

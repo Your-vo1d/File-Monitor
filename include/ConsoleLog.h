@@ -3,6 +3,7 @@
 
 #include "ILog.h"
 #include <QTime>
+#include <QTextStream>
 
 class ConsoleLog : public ILog
 {
@@ -16,6 +17,8 @@ private:
     //Флаг вывода времени перед сообщением
     bool m_logTime = false;
 
+    QTextStream m_out;
+
     //Преобразует qint64 в std::string
     static std::string qint64ToString(qint64 value);
 
@@ -24,7 +27,7 @@ public:
     ~ConsoleLog() = default;
 
     //Конструктор
-    explicit ConsoleLog(bool logTime);
+    explicit ConsoleLog(bool logTime = false);
 
     //Вывод сообщения в консоль
     void log(const std::string &data) override;
