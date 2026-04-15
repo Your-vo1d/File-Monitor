@@ -29,9 +29,6 @@ public slots:
 
     //Срабатывает при удалении файла.
     virtual void onFileRemoval(IFileContainer *container, int index) = 0;
-
-    //Срабатывает в конце цикла обработки файлов
-    virtual void onCycleEnd() = 0;
 };
 
 #endif // ILOG_H
