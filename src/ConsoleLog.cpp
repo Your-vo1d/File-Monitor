@@ -1,51 +1,105 @@
 ﻿#include "ConsoleLog.h"
-#include <iostream>
-#include <algorithm>
-#include <cstdio>
 
-ConsoleLog::ConsoleLog(bool logTime) : m_out(stdout), m_logTime(logTime) {}
+#include <QFileInfo>
+#include <cstdlib>
 
-void ConsoleLog::clearConsole() { /* Отключено для сохранения истории */ }
-
-void ConsoleLog::log(const std::string &data) {
-    if (m_logTime) m_out << QTime::currentTime().toString("HH:mm:ss") << ' ';
-    m_out << "[LOG] " << QString::fromStdString(data) << '\n';
-    m_out.flush();
+ConsoleLog::ConsoleLog(bool logTime)
+{
+    // Устанавливает, нужно ли выводить временные метки в логах
+    m_logTime = logTime;
 }
 
-std::string ConsoleLog::qint64ToString(qint64 value) {
-    if (value == 0) return "0";
-    std::string result; bool neg = value < 0; qint64 n = neg ? -value : value;
-    do { result += "0123456789"[n % 10]; n /= 10; } while (n);
-    if (neg) result += '-';
+
+//Вывод сообщения в консоль
+void ConsoleLog::log(const std::string &data)
+{
+    if (m_logTime) {
+        std::cout << m_time.currentTime().toString().toStdString() << ' ';
+    }
+
+    std::cout << "[LOG] " << data << '\n';
+}
+
+std::string ConsoleLog::qint64ToString(qint64 value)
+{
+    std::string result;
+    result.reserve(20); // максимум 20 цифр для qint64
+
+    qint64 number = value;
+    do {
+        result += "0123456789"[number % 10];
+        number /= 10;
+    } while (number);
+
     std::reverse(result.begin(), result.end());
     return result;
 }
 
-void ConsoleLog::onFileExistence(IFileContainer *container, int index) {
-    if (!container) return;
+void ConsoleLog::onFileExistence(IFileContainer *container, int index)
+{
+    if (!container) {
+        log("onFileExistence: container is nullptr (index " + std::to_string(index) + ")");
+        return;
+    }
+
     try {
-        QFileInfo f = container->operator[](index);
-        log(std::to_string(index) + ": " + f.absoluteFilePath().toStdString() +
-            " | Size: " + qint64ToString(f.size()));
-    } catch (...) { log("⚠️ Error accessing index " + std::to_string(index)); }
+        QFileInfo file = (*container)[index];
+
+        file.refresh();
+
+        log(std::to_string(index) + ": "
+            + file.absoluteFilePath().toStdString()
+            + " | "
+            + qint64ToString(file.size()));
+
+    } catch (const std::out_of_range&) {
+        log("onFileExistence: index " + std::to_string(index) + " out of bounds");
+    } catch (const std::exception& e) {
+        log("onFileExistence: error accessing index " + std::to_string(index) + ": " + e.what());
+    }
 }
 
-void ConsoleLog::onFileUpdate(IFileContainer *container, int index) {
-    if (!container) return;
+void ConsoleLog::onFileUpdate(IFileContainer *container, int index)
+{
+    if (!container) {
+        log("onFileUpdate: container is nullptr (index " + std::to_string(index) + ")");
+        return;
+    }
+
     try {
-        QFileInfo f = container->operator[](index);
-        log(std::to_string(index) + ": [UPDATED " + f.lastModified().toString("HH:mm:ss").toStdString() + "] " +
-            f.absoluteFilePath().toStdString() + " | Size: " + qint64ToString(f.size()));
-    } catch (...) { log("⚠️ Error accessing index " + std::to_string(index)); }
+        QFileInfo file = (*container)[index];
+        file.refresh();
+
+        log(std::to_string(index) + ": [UPDATED "
+            + file.lastModified().toString("HH:mm:ss").toStdString()
+            + "] "
+            + file.absoluteFilePath().toStdString()
+            + " | "
+            + qint64ToString(file.size()));
+
+    } catch (const std::out_of_range&) {
+        log("onFileUpdate: index " + std::to_string(index) + " out of bounds");
+    } catch (const std::exception& e) {
+        log("onFileUpdate: error accessing index " + std::to_string(index) + ": " + e.what());
+    }
 }
 
-void ConsoleLog::onFileRemoval(IFileContainer *container, int index) {
-    if (!container) return;
-    try {
-        QFileInfo f = container->operator[](index);
-        log(std::to_string(index) + ": [NOT EXISTS] " + f.absoluteFilePath().toStdString());
-    } catch (...) { log("⚠️ Error accessing index " + std::to_string(index)); }
-}
+void ConsoleLog::onFileRemoval(IFileContainer *container, int index)
+{
+    if (!container) {
+        log("onFileRemoval: container is nullptr (index " + std::to_string(index) + ")");
+        return;
+    }
 
-void ConsoleLog::onCycleEnd() { /* Пусто */ }
+    try {
+        QFileInfo file = (*container)[index];
+
+        log(std::to_string(index) + ": REMOVED "
+            + file.absoluteFilePath().toStdString());
+
+    } catch (const std::out_of_range&) {
+        log("onFileRemoval: index " + std::to_string(index) + " out of bounds");
+    } catch (const std::exception& e) {
+        log("onFileRemoval: error accessing index " + std::to_string(index) + ": " + e.what());
+    }
+}
