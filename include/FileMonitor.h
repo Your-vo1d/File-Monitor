@@ -7,19 +7,16 @@
 #include <memory>
 #include "IFileContainer.h"
 #include "ILog.h"
-#include "IFileRefresher.h"
 
 class FileMonitor : public QObject
 {
     Q_OBJECT
 public:
     ~FileMonitor() override;
-    static FileMonitor* instance(IFileContainer* container, ILog* logger, IFileRefresher* refresher = nullptr);
-    static void resetForTesting();
+    static FileMonitor* instance(IFileContainer* container, ILog* logger);
 
     void setContainer(IFileContainer* container);
     void setLogger(ILog* logger);
-    void setFileRefresher(IFileRefresher* refresher);
     void setFileUpdateDisappearInterval(unsigned int intervalSeconds);
 
     void start();
@@ -36,15 +33,14 @@ private slots:
     void checkFiles();
 
 private:
-    explicit FileMonitor(IFileContainer* container, ILog* logger, IFileRefresher* refresher);
+    explicit FileMonitor(IFileContainer* container, ILog* logger);
     void connectSignalsToLogger();
     static std::unique_ptr<FileMonitor> m_instance;
 
     IFileContainer* m_container = nullptr;
     ILog* m_logger = nullptr;
-    IFileRefresher* m_refresher = nullptr;
     unsigned int m_intervalSec = 30;
-    QTimer* m_timer = nullptr;
+    std::unique_ptr<QTimer> m_timer;
     QVector<QFileInfo> m_previousStates;
 };
 #endif // FILEMONITOR_H
