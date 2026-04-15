@@ -135,7 +135,7 @@ void FileMonitor::checkFiles() {
     int currentLen = m_container->length();
     bool hasChanges = false;
 
-    while (m_previousStates.size() > static_cast<size_t>(currentLen)) {
+    while (static_cast<int>(m_previousStates.size()) > currentLen) {
         emit onFileRemoval(m_container, static_cast<int>(m_previousStates.size()) - 1);
         m_previousStates.pop_back();
         hasChanges = true;
