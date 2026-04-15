@@ -1,7 +1,6 @@
-﻿#include "ILog.h"
+﻿#include "ConsoleLog.h"
 
 #include <QFileInfo>
-#include <algorithm>
 #include <cstdlib>
 
 ConsoleLog::ConsoleLog(bool logTime)
@@ -10,11 +9,6 @@ ConsoleLog::ConsoleLog(bool logTime)
     m_logTime = logTime;
 }
 
-//Очищение консоли
-void ConsoleLog::clearConsole()
-{
-    system("cls");
-}
 
 //Вывод сообщения в консоль
 void ConsoleLog::log(const std::string &data)
@@ -43,39 +37,69 @@ std::string ConsoleLog::qint64ToString(qint64 value)
 
 void ConsoleLog::onFileExistence(IFileContainer *container, int index)
 {
-    // Случай: файл существует и не был изменён
-    QFileInfo file = (*container)[index];
+    if (!container) {
+        log("onFileExistence: container is nullptr (index " + std::to_string(index) + ")");
+        return;
+    }
 
-    log(std::to_string(index) + ": "
-        + file.absoluteFilePath().toStdString()
-        + " | "
-        + qint64ToString(file.size()));
+    try {
+        QFileInfo file = (*container)[index];
+
+        file.refresh();
+
+        log(std::to_string(index) + ": "
+            + file.absoluteFilePath().toStdString()
+            + " | "
+            + qint64ToString(file.size()));
+
+    } catch (const std::out_of_range&) {
+        log("onFileExistence: index " + std::to_string(index) + " out of bounds");
+    } catch (const std::exception& e) {
+        log("onFileExistence: error accessing index " + std::to_string(index) + ": " + e.what());
+    }
 }
 
 void ConsoleLog::onFileUpdate(IFileContainer *container, int index)
 {
-    // Случай: файл существует и был обновлён
-    QFileInfo file = (*container)[index];
+    if (!container) {
+        log("onFileUpdate: container is nullptr (index " + std::to_string(index) + ")");
+        return;
+    }
 
-    log(std::to_string(index) + ": [UPDATED "
-        + file.lastModified().time().toString().toStdString()
-        + "] "
-        + file.absoluteFilePath().toStdString()
-        + " | "
-        + qint64ToString(file.size()));
+    try {
+        QFileInfo file = (*container)[index];
+        file.refresh();
+
+        log(std::to_string(index) + ": [UPDATED "
+            + file.lastModified().toString("HH:mm:ss").toStdString()
+            + "] "
+            + file.absoluteFilePath().toStdString()
+            + " | "
+            + qint64ToString(file.size()));
+
+    } catch (const std::out_of_range&) {
+        log("onFileUpdate: index " + std::to_string(index) + " out of bounds");
+    } catch (const std::exception& e) {
+        log("onFileUpdate: error accessing index " + std::to_string(index) + ": " + e.what());
+    }
 }
 
 void ConsoleLog::onFileRemoval(IFileContainer *container, int index)
 {
-    // Случай: файл был удалён или не существует
-    QFileInfo file = (*container)[index];
+    if (!container) {
+        log("onFileRemoval: container is nullptr (index " + std::to_string(index) + ")");
+        return;
+    }
 
-    log(std::to_string(index) + ": [NOT EXISTS] "
-        + file.absoluteFilePath().toStdString());
-}
+    try {
+        QFileInfo file = (*container)[index];
 
-void ConsoleLog::onCycleEnd()
-{
-    // Завершение цикла: очистка консоли
-    clearConsole();
+        log(std::to_string(index) + ": REMOVED "
+            + file.absoluteFilePath().toStdString());
+
+    } catch (const std::out_of_range&) {
+        log("onFileRemoval: index " + std::to_string(index) + " out of bounds");
+    } catch (const std::exception& e) {
+        log("onFileRemoval: error accessing index " + std::to_string(index) + ": " + e.what());
+    }
 }
