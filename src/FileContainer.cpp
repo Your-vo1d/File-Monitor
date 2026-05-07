@@ -1,20 +1,20 @@
-﻿#include "DynamicFileContainer.h"
+﻿#include "FileContainer.h"
 #include <QFile>
 #include <QTextStream>
 #include <stdexcept>
 
 
-QFileInfo DynamicFileContainer::operator[](int index) {
+QFileInfo FileContainer::operator[](int index) {
     QMutexLocker locker(&m_mutex);
     if (index < 0 || index >= m_files.size())
-        throw std::out_of_range("DynamicFileContainer: index out of bounds");
+        throw std::out_of_range("FileContainer: index out of bounds");
 
     QFileInfo f = m_files.at(index);
     f.refresh();
     return f;
 }
 
-bool DynamicFileContainer::append(const QString& path) {
+bool FileContainer::append(const QString& path) {
     if (path.isEmpty()) return false;
 
     QFileInfo fi(path);
@@ -34,7 +34,7 @@ bool DynamicFileContainer::append(const QString& path) {
     return true;
 }
 
-bool DynamicFileContainer::remove(const QString& path) {
+bool FileContainer::remove(const QString& path) {
     if (path.isEmpty()) return false;
 
     QString targetPath = QFileInfo(path).absoluteFilePath();
@@ -50,12 +50,12 @@ bool DynamicFileContainer::remove(const QString& path) {
     return false;
 }
 
-void DynamicFileContainer::clear() {
+void FileContainer::clear() {
     QMutexLocker locker(&m_mutex);
     m_files.clear();
 }
 
-int DynamicFileContainer::length() const {
+int FileContainer::length() const {
     QMutexLocker locker(&m_mutex);
     return m_files.size();
 }
