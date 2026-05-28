@@ -1,5 +1,6 @@
-﻿#ifndef FILEMONITOR_H
+#ifndef FILEMONITOR_H
 #define FILEMONITOR_H
+
 #include <QObject>
 #include <QTimer>
 #include <QVector>
@@ -15,9 +16,9 @@ public:
     ~FileMonitor() override;
     static FileMonitor* instance(IFileContainer* container, ILog* logger);
 
-    void setContainer(IFileContainer* container);
-    void setLogger(ILog* logger);
-    void setFileUpdateDisappearInterval(unsigned int intervalSeconds);
+    void setContainer(IFileContainer* c);
+    void setLogger(ILog* l);
+    void setFileUpdateDisappearInterval(unsigned int s);
 
     void start();
     void stop();
@@ -35,12 +36,14 @@ private slots:
 private:
     explicit FileMonitor(IFileContainer* container, ILog* logger);
     void connectSignalsToLogger();
+
     static std::unique_ptr<FileMonitor> m_instance;
 
     IFileContainer* m_container = nullptr;
     ILog* m_logger = nullptr;
-    unsigned int m_intervalSec = 30;
     std::unique_ptr<QTimer> m_timer;
+    unsigned int m_intervalSec = 3;
     QVector<QFileInfo> m_previousStates;
 };
+
 #endif // FILEMONITOR_H

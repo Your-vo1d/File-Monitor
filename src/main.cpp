@@ -1,9 +1,9 @@
-﻿#include <QCoreApplication>
+#include <QCoreApplication>
 #include <iostream>
 #include <string>
 #include <thread>
 #include <atomic>
-#include "DynamicFileContainer.h"
+#include "FileContainer.h"
 #include "ConsoleLog.h"
 #include "FileMonitor.h"
 
@@ -14,18 +14,22 @@ static std::string trim(const std::string& str) {
     return str.substr(first, last - first + 1);
 }
 
-void printStatus(DynamicFileContainer& container, ILog& logger) {
-    logger.log("Watchlist (" + std::to_string(container.length()) + " files):");
+void printStatus(FileContainer& container, ILog& logger) {
+    logger.log(QString("Watchlist (%1 files):").arg(container.length()));
     for (int i = 0; i < container.length(); ++i) {
         try {
             QFileInfo f = container[i];
             f.refresh();
-            std::string status = f.exists() ? " ✅ " : " ❌ ";
-            logger.log("  [" + std::to_string(i) + "] " +
-                       f.absoluteFilePath().toStdString() + status +
-                       "| " + std::to_string(f.size()) + "B | " +
-                       f.lastModified().toString("HH:mm:ss").toStdString());
-        } catch (...) { logger.log("  [" + std::to_string(i) + "] Error accessing file"); }
+            QString status = f.exists() ? " OK " : " MISSING ";
+            logger.log(QString("  [%1] %2%3| %4B | %5")
+                .arg(i)
+                .arg(f.absoluteFilePath())
+                .arg(status)
+                .arg(f.size())
+                .arg(f.lastModified().toString("HH:mm:ss")));
+        } catch (...) {
+            logger.log(QString("  [%1] Error accessing file").arg(i));
+        }
     }
     logger.log("----------------------------------------");
 }
@@ -37,7 +41,7 @@ static void showMenu() {
 
 int main(int argc, char *argv[]) {
     QCoreApplication app(argc, argv);
-    DynamicFileContainer container;
+    FileContainer container;
     ConsoleLog logger(true);
 
     FileMonitor* monitor = FileMonitor::instance(&container, &logger);
@@ -47,15 +51,14 @@ int main(int argc, char *argv[]) {
     std::atomic<bool> running{true};
     std::thread inputThread([&]() {
         std::string line;
-        showMenu(); // Показываем меню при старте
+        showMenu();
 
         while (std::getline(std::cin, line)) {
             line = trim(line);
             if (line.empty()) { showMenu(); continue; }
 
-
             if (line == "0") {
-                logger.log("Остановка мониторинга...");
+                logger.log("Stopping monitor...");
                 running = false;
                 break;
             }
@@ -67,7 +70,7 @@ int main(int argc, char *argv[]) {
             }
 
             if (line == "1" || line == "2") {
-                std::cout << "Введите полный путь к файлу: ";
+                std::cout << "Enter full file path: ";
                 std::cout.flush();
 
                 std::string filePath;
@@ -75,7 +78,7 @@ int main(int argc, char *argv[]) {
                 filePath = trim(filePath);
 
                 if (filePath.empty()) {
-                    logger.log(" Путь не может быть пустым");
+                    logger.log("Path cannot be empty.");
                     showMenu();
                     continue;
                 }
@@ -85,19 +88,19 @@ int main(int argc, char *argv[]) {
                                         : container.remove(qPath);
 
                 if (ok) {
-                    logger.log(line == "1" ? "Добавлено в список." : "Удалено из списка.");
+                    logger.log(line == "1" ? "Added to watchlist." : "Removed from watchlist.");
                 } else {
                     QFileInfo check(qPath);
-                    if (check.exists() && check.isDir()) logger.log("Ошибка: указан каталог.");
-                    else if (!check.exists())            logger.log("Ошибка: файл не найден.");
-                    else if (line == "1")                logger.log("Ошибка: файл уже в списке.");
-                    else                                 logger.log("Ошибка: файл не найден в списке.");
+                    if (check.exists() && check.isDir())  logger.log("Error: path is a directory.");
+                    else if (!check.exists())              logger.log("Error: file not found.");
+                    else if (line == "1")                  logger.log("Error: file already in watchlist.");
+                    else                                   logger.log("Error: file not in watchlist.");
                 }
                 showMenu();
                 continue;
             }
 
-            logger.log("Неизвестная команда. Используйте 1, 2, 3 или 0.");
+            logger.log("Unknown command. Use 1, 2, 3 or 0.");
             showMenu();
         }
     });
