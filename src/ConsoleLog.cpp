@@ -1,76 +1,50 @@
-﻿#include "ConsoleLog.h"
-#include <iostream>
-#include <algorithm>
+#include "ConsoleLog.h"
+#include "IFileContainer.h"
+#include <stdexcept>
 
-ConsoleLog::ConsoleLog(bool logTime)
-    : m_logTime(logTime)
+ConsoleLog::ConsoleLog(bool showTimestamp, QObject* parent)
+    : ILog(parent), m_stdout(stdout), m_showTimestamp(showTimestamp)
 {
 }
 
-void ConsoleLog::log(const std::string &data)
+void ConsoleLog::log(const QString& message)
 {
-    if (m_logTime) {
-        std::cout << QTime::currentTime().toString("HH:mm:ss").toStdString() << ' ';
+    if (m_showTimestamp) {
+        m_stdout << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")
+                 << " - ";
     }
-    std::cout << "[LOG] " << data << '\n';
-    std::cout.flush();
+    m_stdout << message << Qt::endl;
 }
 
-std::string ConsoleLog::qint64ToString(qint64 value)
+void ConsoleLog::onFileExistence(IFileContainer* container, int index)
 {
-    if (value == 0) return "0";
-    std::string result;
-    bool neg = value < 0;
-    qint64 n = neg ? -value : value;
-    do {
-        result += static_cast<char>('0' + (n % 10));
-        n /= 10;
-    } while (n > 0);
-    if (neg) result += '-';
-    std::reverse(result.begin(), result.end());
-    return result;
-}
-
-void ConsoleLog::onFileExistence(IFileContainer *container, int index)
-{
-    if (!container) return;
-
+    if (!container) { log("File existence: null container"); return; }
     try {
-        QFileInfo file = (*container)[index];
-        file.refresh();
-        log(std::to_string(index) + ": " +
-            file.absoluteFilePath().toStdString() + " | " +
-            qint64ToString(file.size()));
-    } catch (...) {
-        log("Error accessing index " + std::to_string(index));
+        QFileInfo f = (*container)[index];
+        log(QString("File exists: %1 (%2 bytes)").arg(f.absoluteFilePath()).arg(f.size()));
+    } catch (const std::exception& e) {
+        log(QString("File existence error at index %1: %2").arg(index).arg(e.what()));
     }
 }
 
-void ConsoleLog::onFileUpdate(IFileContainer *container, int index)
+void ConsoleLog::onFileUpdate(IFileContainer* container, int index)
 {
-    if (!container) return;
-
+    if (!container) { log("File updated: null container"); return; }
     try {
-        QFileInfo file = (*container)[index];
-        file.refresh();
-        log(std::to_string(index) + ": [UPDATED " +
-            file.lastModified().toString("HH:mm:ss").toStdString() + "] " +
-            file.absoluteFilePath().toStdString() + " | " +
-            qint64ToString(file.size()));
-    } catch (...) {
-        log("Error accessing index " + std::to_string(index));
+        QFileInfo f = (*container)[index];
+        log(QString("File updated: %1 (%2 bytes)").arg(f.absoluteFilePath()).arg(f.size()));
+    } catch (const std::exception& e) {
+        log(QString("File update error at index %1: %2").arg(index).arg(e.what()));
     }
 }
 
-void ConsoleLog::onFileRemoval(IFileContainer *container, int index)
+void ConsoleLog::onFileRemoval(IFileContainer* container, int index)
 {
-    if (!container) return; // Проверка nullptr
-
+    if (!container) { log("File removed: null container"); return; }
     try {
-        QFileInfo file = (*container)[index];
-        log(std::to_string(index) + ": REMOVED " +
-            file.absoluteFilePath().toStdString());
+        QFileInfo f = (*container)[index];
+        log(QString("File removed: %1").arg(f.absoluteFilePath()));
     } catch (...) {
-        log("Error accessing index " + std::to_string(index));
+        log(QString("File removed at index %1").arg(index));
     }
 }
