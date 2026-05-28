@@ -1,34 +1,24 @@
-﻿#ifndef ILOG_H
+#ifndef ILOG_H
 #define ILOG_H
 
-#pragma once
-
-#include <string>
 #include <QObject>
-#include "IFileContainer.h"
+#include <QString>
 
-//Определяет методы для обработки событий файловой системы.
+class IFileContainer;
+
 class ILog : public QObject
 {
     Q_OBJECT
-
+protected:
+    explicit ILog(QObject* parent = nullptr) : QObject(parent) {}
 public:
     virtual ~ILog() = default;
-
-    //Записывает сообщение в лог.
-
-    virtual void log(const std::string &data) = 0;
+    virtual void log(const QString& message) = 0;
 
 public slots:
-
-    //Срабатывает при обнаружении файла.
-    virtual void onFileExistence(IFileContainer *container, int index) = 0;
-
-    //Срабатывает при обновлении файла.
-    virtual void onFileUpdate(IFileContainer *container, int index) = 0;
-
-    //Срабатывает при удалении файла.
-    virtual void onFileRemoval(IFileContainer *container, int index) = 0;
+    virtual void onFileExistence(IFileContainer* container, int index) = 0;
+    virtual void onFileUpdate(IFileContainer* container, int index) = 0;
+    virtual void onFileRemoval(IFileContainer* container, int index) = 0;
 };
 
 #endif // ILOG_H
