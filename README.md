@@ -54,58 +54,103 @@ classDiagram
     class IFileContainer {
         <<interface>>
         +virtual ~IFileContainer()
-        +virtual QFileInfo operator[](int)
-        +virtual bool append(QString)
-        +virtual bool remove(QString)
-        +virtual void clear()
-        +virtual int length() const
+        +virtual bool append(const QString&) = 0
+        +virtual bool remove(const QString&) = 0
+        +virtual void clear() = 0
+        +virtual int length() const = 0
+        +virtual QFileInfo operator[](int) = 0
     }
 
     class ILog {
         <<interface>>
+        #explicit ILog(QObject* parent = nullptr)
         +virtual ~ILog()
-        +virtual void log(string)
-        +virtual slot onFileExistence(IFileContainer*, int)
-        +virtual slot onFileUpdate(IFileContainer*, int)
-        +virtual slot onFileRemoval(IFileContainer*, int)
+        +virtual void log(const QString&) = 0
+        +virtual slot onFileExistence(IFileContainer*, int) = 0
+        +virtual slot onFileUpdate(IFileContainer*, int) = 0
+        +virtual slot onFileRemoval(IFileContainer*, int) = 0
+    }
+
+    class IFileInfo {
+        <<interface>>
+        +virtual ~IFileInfo()
+        +virtual QString path() const = 0
+        +virtual qint64 size() const = 0
+        +virtual bool exists() const = 0
+        +virtual void setSize(qint64) = 0
+        +virtual void setExists(bool) = 0
+    }
+
+    class IFileUpdater {
+        <<interface>>
+        +virtual ~IFileUpdater()
+        +virtual bool update(QSharedPointer~IFileInfo~&) = 0
+        +virtual QString strategyName() const = 0
+    }
+
+    %% Перечисление
+    class FileUpdaterResult {
+        <<enumeration>>
+        Updated
+        Exists
+        Removed
     }
 
     %% Реализации
-    class DynamicFileContainer {
-        -QFileInfoList m_files
+    class FileContainer {
+        -QList~QFileInfo~ m_files
         -mutable QMutex m_mutex
-        +~DynamicFileContainer()
-        +QFileInfo operator[](int) override
-        +bool append(QString) override
-        +bool remove(QString) override
+        +~FileContainer()
+        +bool append(const QString&) override
+        +bool remove(const QString&) override
         +void clear() override
         +int length() const override
+        +QFileInfo operator[](int) override
     }
 
     class ConsoleLog {
-        -bool m_logTime
-        -static string qint64ToString(qint64)
-        +explicit ConsoleLog(bool)
-        +~ConsoleLog()
-        +void log(string) override
+        -QTextStream m_stdout
+        -bool m_showTimestamp
+        +explicit ConsoleLog(bool showTimestamp = false, QObject* parent = nullptr)
+        +void log(const QString&) override
         +slot onFileExistence(IFileContainer*, int) override
         +slot onFileUpdate(IFileContainer*, int) override
         +slot onFileRemoval(IFileContainer*, int) override
     }
 
+    class FileInfo {
+        -QString m_path
+        -qint64 m_size
+        -bool m_exists
+        +explicit FileInfo(const QString&)
+        +QString path() const override
+        +qint64 size() const override
+        +bool exists() const override
+        +void setSize(qint64) override
+        +void setExists(bool) override
+    }
+
+    class TimeUpdater {
+        -qint64 m_minInterval = 1000
+        +TimeUpdater()
+        +bool update(QSharedPointer~IFileInfo~&) override
+        +QString strategyName() const override
+        +void setMinChangeInterval(qint64)
+    }
+
     %% Монитор
     class FileMonitor {
+        -static unique_ptr~FileMonitor~ m_instance
         -IFileContainer* m_container
         -ILog* m_logger
-        -unsigned int m_intervalSec
         -unique_ptr~QTimer~ m_timer
+        -unsigned int m_intervalSec = 3
         -QVector~QFileInfo~ m_previousStates
-        -static unique_ptr~FileMonitor~ m_instance
-        +~FileMonitor()
+        +~FileMonitor() override
         +static FileMonitor* instance(IFileContainer*, ILog*)
         +void setContainer(IFileContainer*)
         +void setLogger(ILog*)
-        +void setFileUpdateDisappearInterval(uint)
+        +void setFileUpdateDisappearInterval(unsigned int)
         +void start()
         +void stop()
         +bool isRunning() const
@@ -122,19 +167,23 @@ classDiagram
     class main {
         <<main.cpp>>
         +main(int, char**)
-        -trim(string)
-        -printStatus(DynamicFileContainer&, ILog&)
+        -trim(const string&)
+        -printStatus(FileContainer&, ILog&)
         -showMenu()
     }
 
-    %% Связи (строго по вашему коду)
-    IFileContainer <|.. DynamicFileContainer : реализует
+    %% Связи
+    IFileContainer <|.. FileContainer : реализует
     ILog <|.. ConsoleLog : реализует
+    IFileInfo <|.. FileInfo : реализует
+    IFileUpdater <|.. TimeUpdater : реализует
+    IFileUpdater ..> IFileInfo : использует
     FileMonitor o-- IFileContainer : наблюдает
     FileMonitor o-- ILog : уведомляет
     ConsoleLog ..> IFileContainer : использует в слотах
-    main --> ConsoleLog : создаёт (AppLogger)
-    main --> FileMonitor : передаёт ConsoleLog (AppSysLogger)
+    main --> FileContainer : создаёт
+    main --> ConsoleLog : создаёт
+    main --> FileMonitor : получает экземпляр
 ```
 
 ---
@@ -161,7 +210,7 @@ classDiagram
         +slot onFileExistence(IFileContainer*, int)
         +slot onFileUpdate(IFileContainer*, int)
         +slot onFileRemoval(IFileContainer*, int)
-        +void log(const string&)
+        +void log(const QString&)
     }
 
     %% Связи
