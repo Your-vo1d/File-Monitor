@@ -1,4 +1,4 @@
-#include <QCoreApplication>
+﻿#include <QCoreApplication>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -60,6 +60,7 @@ int main(int argc, char *argv[]) {
             if (line == "0") {
                 logger.log("Stopping monitor...");
                 running = false;
+                QCoreApplication::quit();
                 break;
             }
 
